@@ -232,7 +232,7 @@ function runCli() {
       outputFilePath,
       {
         tgToken: requiredEnv("TG_BOT_TOKEN"),
-        tgAllowedUserId: String(process.env.TG_ALLOWED_USER_ID || "").trim(),
+        tgAllowedUserId: requiredEnv("TG_ALLOWED_USER_ID"),
       },
       masterSecret,
       "app-secrets",

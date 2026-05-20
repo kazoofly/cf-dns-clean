@@ -65,8 +65,8 @@ curl -fsSL https://raw.githubusercontent.com/kazoofly/cf-dns-clean/main/install.
 - 加密主密钥
 如果留空，脚本会自动生成一串随机密钥
 - `TG_BOT_TOKEN`
-- `TG_ALLOWED_USER_ID`
-可留空，但建议填写
+- `TG_ALLOWED_USER_ID`（必填，只允许这个 Telegram 用户操作）
+不能留空。
 
 如果压缩包里已经带了 `app-secrets.enc` 或 `managed-zones.enc`：
 

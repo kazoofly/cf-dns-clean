@@ -55,7 +55,7 @@ async function main() {
   log("Telegram Cloudflare DNS bot starting...");
 
   if (!config.tgAllowedUserId) {
-    log("warning: TG_ALLOWED_USER_ID is empty; any user who can reach the bot may control DNS");
+    throw new Error("TG_ALLOWED_USER_ID is required; refusing to start without an authorized Telegram user ID");
   }
 
   await verifySetup();
@@ -105,8 +105,16 @@ async function handleMessage(message) {
   const userId = String(message.from?.id ?? "");
   const chatId = message.chat?.id;
   const text = (message.text || "").trim();
+  const isCommandMessage = text.startsWith("/");
 
   if (!chatId || !text) {
+    return;
+  }
+
+  if (!isPrivateChat(message.chat)) {
+    if (isCommandMessage || sessions.get(userId)?.pending) {
+      await safeDeleteMessage(chatId, message.message_id);
+    }
     return;
   }
 
@@ -120,7 +128,6 @@ async function handleMessage(message) {
   }
 
   const session = getSession(userId);
-  const isCommandMessage = text.startsWith("/");
 
   if (text === "/cancel") {
     const pendingPromptMessageId = session.pendingPromptMessageId;
@@ -163,14 +170,18 @@ async function handleMessage(message) {
   }
 
   if (session.pending) {
-    await handlePendingText({
-      session,
-      userId,
-      chatId,
-      text,
-      replyToMessageId: message.message_id,
-    });
-    if (isCommandMessage) {
+    try {
+      await handlePendingText({
+        session,
+        userId,
+        chatId,
+        text,
+        replyToMessageId: undefined,
+      });
+    } catch (error) {
+      log(`pending input error: ${formatError(error)}`);
+      await sendText(chatId, `执行失败：<code>${escapeHtml(formatError(error))}</code>`).catch(() => null);
+    } finally {
       await safeDeleteMessage(chatId, message.message_id);
     }
     return;
@@ -206,6 +217,11 @@ async function handleCallback(query) {
   }
 
   const session = getSession(userId);
+  if (!isPrivateChat(query.message?.chat)) {
+    await answerCallback(query.id, "请在私聊中使用");
+    return;
+  }
+
   let callbackAnswered = false;
 
   async function acknowledge(text = "") {
@@ -682,7 +698,11 @@ function rememberPendingPrompt(session, message) {
 }
 
 function isAllowedUser(userId) {
-  return !config.tgAllowedUserId || config.tgAllowedUserId === userId;
+  return Boolean(config.tgAllowedUserId) && config.tgAllowedUserId === userId;
+}
+
+function isPrivateChat(chat) {
+  return String(chat?.type || "") === "private";
 }
 
 function requireZone(session) {

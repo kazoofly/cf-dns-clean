@@ -78,7 +78,8 @@ ensure_key_file() {
   fi
 
   printf '请输入 Docker 部署使用的加密主密钥（可留空，留空则自动生成）: '
-  read -r master_key
+  read -r -s master_key
+  printf '\n'
 
   if [ -z "${master_key}" ]; then
     master_key="$(generate_secret)"
@@ -104,11 +105,13 @@ prompt_telegram_secrets() {
   fi
 
   printf '请输入 TG_BOT_TOKEN: '
-  read -r tg_token
+  read -r -s tg_token
+  printf '\n'
   [ -n "${tg_token}" ] || fail "TG_BOT_TOKEN 不能为空。"
 
-  printf '请输入 TG_ALLOWED_USER_ID（可留空）: '
+  printf '请输入 TG_ALLOWED_USER_ID（必填）: '
   read -r tg_allowed_user_id
+  [ -n "${tg_allowed_user_id}" ] || fail "TG_ALLOWED_USER_ID 不能为空。"
 
   printf -v "${target_token_var}" '%s' "${tg_token}"
   printf -v "${target_user_var}" '%s' "${tg_allowed_user_id}"
@@ -208,17 +211,28 @@ main() {
   prompt_telegram_secrets "${data_dir}" tg_token tg_allowed_user_id
   write_env_file "${env_file}" "${container_name}" "${image_name}" "${data_dir}" "${key_file}" "${tg_token}" "${tg_allowed_user_id}"
 
-  docker compose --env-file "${env_file}" -f "${compose_file}" up -d --build
-
-  if [ -n "${tg_token}" ]; then
-    if wait_for_bootstrap_files "${data_dir}"; then
+  if ! docker compose --env-file "${env_file}" -f "${compose_file}" up -d --build; then
+    if [ -n "${tg_token}" ]; then
       strip_bootstrap_secrets "${env_file}"
-      log "已从 Docker 环境文件移除明文 Telegram 启动信息。"
-    else
-      log "警告: 启动后未及时检测到加密文件，已保留 docker.env 里的 Telegram 启动信息，便于你排查。"
     fi
+    docker compose --env-file "${env_file}" -f "${compose_file}" down --remove-orphans || true
+    fail "Docker 启动失败，已从 docker.env 移除明文 Telegram 启动信息。"
   fi
 
+  if [ -n "${tg_token}" ]; then
+    strip_bootstrap_secrets "${env_file}"
+    if wait_for_bootstrap_files "${data_dir}"; then
+      strip_bootstrap_secrets "${env_file}"
+      docker compose --env-file "${env_file}" -f "${compose_file}" up -d --force-recreate --no-build
+      log "已从 Docker 环境文件移除明文 Telegram 启动信息。"
+    else
+      log "警告: 启动后未及时检测到加密文件，已移除 docker.env 里的 Telegram 启动信息。"
+    fi
+    if [ ! -f "${data_dir}/app-secrets.enc" ] || [ ! -f "${data_dir}/managed-zones.enc" ]; then
+      docker compose --env-file "${env_file}" -f "${compose_file}" down --remove-orphans || true
+      fail "启动后未及时生成加密密钥文件，已移除明文 Telegram 启动信息。请检查容器日志后重新执行脚本。"
+    fi
+  fi
   show_summary "${env_file}" "${compose_file}" "${state_dir}"
 }
 

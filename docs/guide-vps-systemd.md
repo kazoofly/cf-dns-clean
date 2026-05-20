@@ -60,7 +60,7 @@ bash deploy.sh
 
 - 加密主密钥
 - `TG_BOT_TOKEN`
-- `TG_ALLOWED_USER_ID`
+- `TG_ALLOWED_USER_ID`（必填，只允许这个 Telegram 用户操作）
 
 如果你第一次部署，不想自己生成主密钥，可以直接回车，让脚本自动生成。
 

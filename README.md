@@ -34,6 +34,8 @@ https://github.com/kazoofly/cf-dns-clean
 
 项目不会把敏感信息以明文保存在项目目录中。
 
+机器人启动时必须配置 `TG_ALLOWED_USER_ID`，并且只允许在 Telegram 私聊中操作，避免 DNS 信息被群聊误展示。
+
 运行后会生成：
 
 - `app-secrets.enc`：加密保存 Telegram Bot Token 和 Telegram 用户 ID

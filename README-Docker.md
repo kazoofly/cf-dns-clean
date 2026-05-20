@@ -18,7 +18,7 @@ bash docker-deploy.sh
 - 把 Docker 运行所需文件复制到 `/opt/cf-dns-bot-docker/app`
 - 创建数据目录 `/opt/cf-dns-bot-docker/data`
 - 创建主密钥文件 `/opt/cf-dns-bot-docker/secrets/master.key`
-- 首次启动时提示你输入 `TG_BOT_TOKEN` 和 `TG_ALLOWED_USER_ID`
+- 首次启动时提示你输入 `TG_BOT_TOKEN` 和必填的 `TG_ALLOWED_USER_ID`
 - 自动执行 `docker compose up -d --build`
 - 生成加密后的 `app-secrets.enc`、`managed-zones.enc`
 - 启动成功后，把 `docker.env` 里的明文 Telegram 启动信息清掉
@@ -58,7 +58,7 @@ bash docker-image-deploy.sh ghcr.io/kazoofly/cf-dns-clean:latest
 
 - 创建 `/opt/cf-dns-bot-docker` 运行目录
 - 创建主密钥文件和数据目录
-- 首次启动时提示你输入 `TG_BOT_TOKEN` 和 `TG_ALLOWED_USER_ID`
+- 首次启动时提示你输入 `TG_BOT_TOKEN` 和必填的 `TG_ALLOWED_USER_ID`
 - 自动 `pull` 镜像并启动
 
 发布版本标签时，例如：

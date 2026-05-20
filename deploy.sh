@@ -224,7 +224,8 @@ ensure_key_file() {
   else
     printf '\n请输入加密主密钥（可留空，留空则自动生成）: '
   fi
-  read -r master_key
+  read -r -s master_key
+  printf '\n'
 
   if [ -z "${master_key}" ]; then
     if [ "${has_packaged_encrypted_secrets}" = "1" ]; then
@@ -264,11 +265,13 @@ write_app_secrets() {
   fi
 
   printf '请输入 TG_BOT_TOKEN: '
-  read -r tg_token
+  read -r -s tg_token
+  printf '\n'
   [ -n "${tg_token}" ] || fail "TG_BOT_TOKEN 不能为空。"
 
-  printf '请输入 TG_ALLOWED_USER_ID（可留空）: '
+  printf '请输入 TG_ALLOWED_USER_ID（必填）: '
   read -r tg_allowed_user_id
+  [ -n "${tg_allowed_user_id}" ] || fail "TG_ALLOWED_USER_ID 不能为空。"
 
   CF_DNS_BOT_KEY_FILE="${KEY_FILE}" \
   TG_BOT_TOKEN="${tg_token}" \

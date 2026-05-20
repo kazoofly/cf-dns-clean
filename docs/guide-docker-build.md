@@ -49,7 +49,7 @@ bash docker-deploy.sh
 
 - Docker 部署使用的加密主密钥
 - `TG_BOT_TOKEN`
-- `TG_ALLOWED_USER_ID`
+- `TG_ALLOWED_USER_ID`（必填，只允许这个 Telegram 用户操作）
 
 ## 运行目录
 

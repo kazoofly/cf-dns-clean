@@ -71,7 +71,7 @@ bash docker-image-deploy.sh ghcr.io/kazoofly/cf-dns-clean:latest
 
 - 创建 `/opt/cf-dns-bot-docker` 运行目录
 - 创建数据目录和主密钥目录
-- 首次启动时提示你输入 `TG_BOT_TOKEN`
+- 首次启动时提示你输入 `TG_BOT_TOKEN` 和必填的 `TG_ALLOWED_USER_ID`
 - 自动拉取镜像并启动
 
 ## 如果仓库或镜像是私有的
