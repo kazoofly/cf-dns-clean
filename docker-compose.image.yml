@@ -1,0 +1,21 @@
+services:
+  cf-dns-bot:
+    image: ${CF_DNS_BOT_IMAGE:-cf-dns-bot:latest}
+    container_name: ${CF_DNS_BOT_CONTAINER_NAME:-cf-dns-bot}
+    restart: unless-stopped
+    environment:
+      POLL_TIMEOUT_SECONDS: ${POLL_TIMEOUT_SECONDS:-30}
+      RECORDS_PER_PAGE: ${RECORDS_PER_PAGE:-5}
+      RECORDS_CACHE_TTL_MS: ${RECORDS_CACHE_TTL_MS:-15000}
+      CF_DNS_BOT_KEY_FILE: /run/secrets/cf-dns-bot/master.key
+      TG_BOT_TOKEN: ${TG_BOT_TOKEN:-}
+      TG_ALLOWED_USER_ID: ${TG_ALLOWED_USER_ID:-}
+    volumes:
+      - type: bind
+        source: ${CF_DNS_BOT_DOCKER_DATA_DIR:-./docker-data/data}
+        target: /app/data
+      - type: bind
+        source: ${CF_DNS_BOT_DOCKER_KEY_FILE:-./docker-data/secrets/master.key}
+        target: /run/secrets/cf-dns-bot/master.key
+        read_only: true
+    command: ["node", "/app/runtime/tg-cf-dns-bot.mjs"]

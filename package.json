@@ -1,0 +1,12 @@
+{
+  "name": "cf-dns-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node tg-cf-dns-bot.mjs",
+    "check": "node --check tg-cf-dns-bot.mjs",
+    "encrypt:app": "node secure-store.mjs write-app-secrets app-secrets.enc",
+    "encrypt:zones": "node secure-store.mjs encrypt-managed-zones managed-zones.json managed-zones.enc"
+  }
+}

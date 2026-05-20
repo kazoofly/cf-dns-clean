@@ -1,0 +1,8 @@
+.env
+.gitdir/
+managed-zones.json
+app-secrets.enc
+managed-zones.enc
+master.key
+docker-data/
+node_modules/

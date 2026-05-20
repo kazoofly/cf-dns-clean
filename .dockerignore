@@ -1,0 +1,11 @@
+.git
+.env
+release
+node_modules
+tmp-secure-repl-*
+tmp-secure-test-*
+app-secrets.enc
+managed-zones.enc
+managed-zones.json
+master.key
+docker-data
