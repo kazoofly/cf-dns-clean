@@ -1,6 +1,6 @@
 # cf-dns-clean
 
-一个通过 Telegram Bot 管理 Cloudflare DNS 记录的轻量工具。
+一个由AI编写的通过Telegram Bot 管理 Cloudflare DNS 记录的轻量工具。
 
 项目地址：
 
