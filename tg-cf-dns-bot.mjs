@@ -332,6 +332,7 @@ async function handleCallback(query) {
         replyMarkup: pendingCancelMenu(),
       });
       rememberPendingPrompt(session, promptMessage);
+      await safeDeleteMessage(chatId, messageId);
       return;
     }
 
@@ -1006,14 +1007,7 @@ function mainMenu() {
 
 function domainListMenu(zones, page, pageCount) {
   const rows = zones.map((zone) => [{ text: zone.name, callback_data: `zone:${zone.zoneId}` }]);
-  const pageButtons = [];
-
-  if (page > 1) {
-    pageButtons.push({ text: "上一页", callback_data: `domains:${page - 1}` });
-  }
-  if (page < pageCount) {
-    pageButtons.push({ text: "下一页", callback_data: `domains:${page + 1}` });
-  }
+  const pageButtons = paginationButtons(page, pageCount, "domains");
   if (pageButtons.length > 0) {
     rows.push(pageButtons);
   }
@@ -1026,13 +1020,7 @@ function domainListMenu(zones, page, pageCount) {
 }
 
 function recordsMenu(session) {
-  const pageButtons = [];
-  if (session.recordPage > 1) {
-    pageButtons.push({ text: "上一页", callback_data: `rpage:${session.recordPage - 1}` });
-  }
-  if (session.recordPage < session.recordPageCount) {
-    pageButtons.push({ text: "下一页", callback_data: `rpage:${session.recordPage + 1}` });
-  }
+  const pageButtons = paginationButtons(session.recordPage, session.recordPageCount, "rpage");
   const selectButtons = Array.from({ length: 5 }, (_, index) => ({
     text: String(index + 1),
     callback_data: `pick:${index + 1}`,
@@ -1060,6 +1048,23 @@ function recordsMenu(session) {
       ],
     ],
   };
+}
+
+function paginationButtons(currentPage, pageCount, callbackPrefix) {
+  const safePage = clampPage(currentPage, pageCount);
+  const buttons = [];
+
+  if (safePage > 1) {
+    buttons.push({ text: "首页", callback_data: `${callbackPrefix}:1` });
+    buttons.push({ text: "上一页", callback_data: `${callbackPrefix}:${safePage - 1}` });
+  }
+
+  if (safePage < pageCount) {
+    buttons.push({ text: "下一页", callback_data: `${callbackPrefix}:${safePage + 1}` });
+    buttons.push({ text: "尾页", callback_data: `${callbackPrefix}:${pageCount}` });
+  }
+
+  return buttons;
 }
 
 function addRecordTypeMenu(session) {
