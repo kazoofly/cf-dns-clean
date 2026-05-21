@@ -310,6 +310,31 @@ async function handleCallback(query) {
       return;
     }
 
+    if (data === "recadd") {
+      const zone = requireSelectedZone(session);
+      clearPendingState(session);
+      await acknowledge("请选择记录类型");
+      await editText(chatId, messageId, buildAddRecordTypeText(zone), addRecordTypeMenu(session));
+      return;
+    }
+
+    if (data.startsWith("addtype:")) {
+      const recordType = data.slice(8);
+      const zone = requireSelectedZone(session);
+      ensureSupportedType(recordType);
+      session.pending = {
+        type: "add-record-name",
+        zoneId: zone.zoneId,
+        recordType,
+      };
+      await acknowledge("请发送记录名称");
+      const promptMessage = await sendText(chatId, buildAddRecordNamePrompt(zone, recordType), {
+        replyMarkup: pendingCancelMenu(),
+      });
+      rememberPendingPrompt(session, promptMessage);
+      return;
+    }
+
     if (data.startsWith("pick:")) {
       const displayNumber = Number(data.slice(5));
       const item = session.pageSelection.items.find((entry) => entry.displayNumber === displayNumber);
@@ -554,6 +579,79 @@ async function handlePendingText({ session, userId, chatId, text, replyToMessage
     );
     await safeDeleteMessage(chatId, pendingPromptMessageId);
     await sendRecords(chatId, userId, 1, replyToMessageId);
+    return;
+  }
+
+  if (pending.type === "add-record-name") {
+    const zone = getManagedZone(pending.zoneId);
+    const normalizedName = normalizeRecordName(zone.name, text);
+    if (!normalizedName) {
+      await sendText(
+        chatId,
+        "名称无效，请发送完整域名，或发送 @ / 子域前缀，例如：<code>www</code>、<code>@</code>、<code>api.example.com</code>",
+        {
+          replyToMessageId,
+        },
+      );
+      return;
+    }
+
+    const pendingPromptMessageId = session.pendingPromptMessageId;
+    session.pending = {
+      type: "add-record-content",
+      zoneId: pending.zoneId,
+      recordType: pending.recordType,
+      name: normalizedName,
+    };
+
+    const promptMessage = await sendText(chatId, buildAddRecordContentPrompt(zone, pending.recordType, normalizedName), {
+      replyMarkup: pendingCancelMenu(),
+      replyToMessageId,
+    });
+    rememberPendingPrompt(session, promptMessage);
+    await safeDeleteMessage(chatId, pendingPromptMessageId);
+    return;
+  }
+
+  if (pending.type === "add-record-content") {
+    const normalizedContent = normalizeRecordContent(pending.recordType, text);
+    if (!normalizedContent) {
+      await sendText(chatId, buildInvalidValueText(pending.recordType), {
+        replyToMessageId,
+      });
+      return;
+    }
+
+    const created = await createRecord(pending.zoneId, {
+      type: pending.recordType,
+      name: pending.name,
+      content: normalizedContent,
+    });
+    const zone = getManagedZone(pending.zoneId);
+    const pendingPromptMessageId = session.pendingPromptMessageId;
+
+    clearPendingState(session);
+    session.currentZoneId = zone.zoneId;
+    session.currentZoneName = zone.name;
+    session.recordFilter = pending.recordType;
+    session.recordPage = 1;
+    session.lastView = {
+      kind: "records",
+      page: 1,
+    };
+
+    await sendText(
+      chatId,
+      buildRecordDetailsText(created, {
+        title: "记录已新增",
+        zoneName: zone.name,
+      }),
+      {
+        replyMarkup: detailMenu(created.id, session.lastView),
+        replyToMessageId,
+      },
+    );
+    await safeDeleteMessage(chatId, pendingPromptMessageId);
     return;
   }
 
@@ -908,9 +1006,16 @@ function mainMenu() {
 
 function domainListMenu(zones, page, pageCount) {
   const rows = zones.map((zone) => [{ text: zone.name, callback_data: `zone:${zone.zoneId}` }]);
+  const pageButtons = [];
 
-  if (pageCount > 1) {
-    rows.push([{ text: "下一页", callback_data: `domains:${nextPage(page, pageCount)}` }]);
+  if (page > 1) {
+    pageButtons.push({ text: "上一页", callback_data: `domains:${page - 1}` });
+  }
+  if (page < pageCount) {
+    pageButtons.push({ text: "下一页", callback_data: `domains:${page + 1}` });
+  }
+  if (pageButtons.length > 0) {
+    rows.push(pageButtons);
   }
 
   rows.push([
@@ -921,7 +1026,13 @@ function domainListMenu(zones, page, pageCount) {
 }
 
 function recordsMenu(session) {
-  const next = nextRecordPage(session.recordPage, session.recordPageCount);
+  const pageButtons = [];
+  if (session.recordPage > 1) {
+    pageButtons.push({ text: "上一页", callback_data: `rpage:${session.recordPage - 1}` });
+  }
+  if (session.recordPage < session.recordPageCount) {
+    pageButtons.push({ text: "下一页", callback_data: `rpage:${session.recordPage + 1}` });
+  }
   const selectButtons = Array.from({ length: 5 }, (_, index) => ({
     text: String(index + 1),
     callback_data: `pick:${index + 1}`,
@@ -935,17 +1046,31 @@ function recordsMenu(session) {
         { text: session.recordFilter === "AAAA" ? "[AAAA]" : "AAAA", callback_data: "rtype:AAAA" },
         { text: session.recordFilter === "CNAME" ? "[CNAME]" : "CNAME", callback_data: "rtype:CNAME" },
       ],
-      ...(session.recordPageCount > 1
-        ? [[{ text: session.recordPage >= session.recordPageCount ? "上一页" : "下一页", callback_data: `rpage:${next}` }]]
-        : []),
+      ...(pageButtons.length > 0 ? [pageButtons] : []),
       [
+        { text: "新增DNS", callback_data: "recadd" },
         { text: "清除筛选", callback_data: "rclr" },
+      ],
+      [
         { text: "删除此域", callback_data: "zdel" },
       ],
       [
         { text: "返回上一级", callback_data: `domains:${session.domainPage || 1}` },
         { text: "返回主菜单", callback_data: "menu" },
       ],
+    ],
+  };
+}
+
+function addRecordTypeMenu(session) {
+  return {
+    inline_keyboard: [
+      [
+        { text: "A", callback_data: "addtype:A" },
+        { text: "AAAA", callback_data: "addtype:AAAA" },
+        { text: "CNAME", callback_data: "addtype:CNAME" },
+      ],
+      [{ text: "返回记录列表", callback_data: `rpage:${session.recordPage || 1}` }],
     ],
   };
 }
@@ -1002,26 +1127,6 @@ function pendingCancelMenu() {
   return {
     inline_keyboard: [[{ text: "取消", callback_data: "pcancel" }]],
   };
-}
-
-function nextPage(currentPage, pageCount) {
-  if (pageCount <= 1) {
-    return 1;
-  }
-
-  return currentPage >= pageCount ? 1 : currentPage + 1;
-}
-
-function nextRecordPage(currentPage, pageCount) {
-  if (pageCount <= 1) {
-    return 1;
-  }
-
-  if (currentPage >= pageCount) {
-    return Math.max(1, pageCount - 1);
-  }
-
-  return currentPage + 1;
 }
 
 function buildBackCallback(context) {
@@ -1251,6 +1356,23 @@ async function getRecord(zoneId, recordId) {
   const record = response.result;
   upsertCachedRecord(zoneId, record);
   return record;
+}
+
+async function createRecord(zoneId, record) {
+  const response = await cfForZone(zoneId, `/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    body: {
+      type: record.type,
+      name: record.name,
+      content: record.content,
+      ttl: 1,
+      proxied: false,
+      comment: "",
+    },
+  });
+  const created = response.result;
+  upsertCachedRecord(zoneId, created);
+  return created;
 }
 
 async function updateRecord(zoneId, record, patch) {
@@ -1729,6 +1851,44 @@ function buildAddZoneTokenPrompt() {
       "建议权限：",
       "1. Zone.Zone Read",
       "2. Zone.DNS Write",
+    ]),
+  ].join("\n");
+}
+
+function buildAddRecordTypeText(zone) {
+  return [
+    "<b>新增 DNS</b>",
+    "",
+    buildPanelBlock([
+      formatDetailLine("域名", zone.name),
+      "请选择要新增的记录类型。",
+    ]),
+  ].join("\n");
+}
+
+function buildAddRecordNamePrompt(zone, recordType) {
+  return [
+    `<b>新增 ${recordType} 记录</b>`,
+    "",
+    buildPanelBlock([
+      formatDetailLine("域名", zone.name),
+      "请发送记录名称。",
+      "",
+      "可发送完整域名，或发送 @ / 子域前缀。",
+      "例如：www、@、api.example.com",
+    ]),
+  ].join("\n");
+}
+
+function buildAddRecordContentPrompt(zone, recordType, recordName) {
+  return [
+    `<b>新增 ${recordType} 记录</b>`,
+    "",
+    buildPanelBlock([
+      formatDetailLine("域名", zone.name),
+      formatDetailLine("名称", recordName),
+      "",
+      stripHtml(buildValuePrompt(recordType)),
     ]),
   ].join("\n");
 }

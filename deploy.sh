@@ -156,7 +156,6 @@ copy_project_files() {
   cp -f "${SCRIPT_DIR}/secure-store.mjs" "${APP_DIR}/"
   cp -f "${SCRIPT_DIR}/package.json" "${APP_DIR}/"
   cp -f "${SCRIPT_DIR}/README.md" "${APP_DIR}/"
-  cp -f "${SCRIPT_DIR}/README-VPS.md" "${APP_DIR}/"
   cp -f "${SCRIPT_DIR}/.env.example" "${APP_DIR}/"
 
   if [ -f "${SCRIPT_DIR}/app-secrets.enc" ]; then
