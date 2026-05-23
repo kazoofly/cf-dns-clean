@@ -332,7 +332,7 @@ async function handleCallback(query) {
         replyMarkup: pendingCancelMenu(),
       });
       rememberPendingPrompt(session, promptMessage);
-      await safeDeleteMessage(chatId, messageId);
+      await cleanupAddRecordTypeMessage(chatId, messageId, zone, recordType);
       return;
     }
 
@@ -1483,13 +1483,28 @@ async function deleteMessage(chatId, messageId) {
 
 async function safeDeleteMessage(chatId, messageId) {
   if (!chatId || !messageId) {
-    return;
+    return false;
   }
 
   try {
     await deleteMessage(chatId, messageId);
+    return true;
   } catch {
     // Ignore cleanup failures; they should not block the main action.
+    return false;
+  }
+}
+
+async function cleanupAddRecordTypeMessage(chatId, messageId, zone, recordType) {
+  const deleted = await safeDeleteMessage(chatId, messageId);
+  if (deleted) {
+    return;
+  }
+
+  try {
+    await editText(chatId, messageId, buildAddRecordTypeCleanupText(zone, recordType));
+  } catch {
+    // If Telegram also refuses editing, leave the add flow running normally.
   }
 }
 
@@ -1867,6 +1882,18 @@ function buildAddRecordTypeText(zone) {
     buildPanelBlock([
       formatDetailLine("域名", zone.name),
       "请选择要新增的记录类型。",
+    ]),
+  ].join("\n");
+}
+
+function buildAddRecordTypeCleanupText(zone, recordType) {
+  return [
+    "<b>新增 DNS 流程已继续</b>",
+    "",
+    buildPanelBlock([
+      formatDetailLine("域名", zone.name),
+      formatDetailLine("类型", recordType),
+      "请按最新提示继续填写记录。",
     ]),
   ].join("\n");
 }
