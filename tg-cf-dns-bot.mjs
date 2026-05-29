@@ -504,11 +504,14 @@ async function handleCallback(query) {
       const zoneId = requireZone(session);
       await acknowledge();
       const record = await getRecord(zoneId, recordId);
-      await updateRecord(zoneId, record, {
+      const updated = await updateRecord(zoneId, record, {
         proxied: !record.proxied,
       });
 
-      await editRecordDetails(chatId, messageId, userId, recordId, { zoneId });
+      await editRecordDetails(chatId, messageId, userId, recordId, {
+        zoneId,
+        record: updated,
+      });
       return;
     }
 
