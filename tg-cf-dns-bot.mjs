@@ -2029,7 +2029,12 @@ function formatDetailLine(label, value) {
 }
 
 function buildPanelBlock(lines) {
-  return `<pre>${lines.map((line) => escapeHtml(padDisplayWidth(String(line), PANEL_WIDTH))).join("\n")}</pre>`;
+  const border = `+${"-".repeat(PANEL_WIDTH)}+`;
+  const body = lines
+    .flatMap((line) => wrapDisplayLine(String(line), PANEL_WIDTH))
+    .map((line) => `  ${escapeHtml(line)}`);
+
+  return `<pre>${[border, ...body, border].join("\n")}</pre>`;
 }
 
 function padDisplayWidth(value, targetWidth) {
@@ -2039,6 +2044,27 @@ function padDisplayWidth(value, targetWidth) {
   }
 
   return value + " ".repeat(targetWidth - width);
+}
+
+function wrapDisplayLine(value, targetWidth) {
+  const lines = [];
+  let current = "";
+  let currentWidth = 0;
+
+  for (const char of String(value)) {
+    const charWidth = getDisplayWidth(char);
+    if (current && currentWidth + charWidth > targetWidth) {
+      lines.push(current);
+      current = "";
+      currentWidth = 0;
+    }
+
+    current += char;
+    currentWidth += charWidth;
+  }
+
+  lines.push(current);
+  return lines;
 }
 
 function getDisplayWidth(value) {
